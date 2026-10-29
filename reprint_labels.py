@@ -21,7 +21,7 @@ import re
 import socket
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 try:  # pure-Python DataMatrix encoder, only used for the on-screen preview
     from ppf.datamatrix import DataMatrix
@@ -263,7 +263,8 @@ def send(job, ip=None, port=None):
 def print_labels(part, copies=1, option=0, fixed_time=None, log=print,
                  pause=None, stop=None, done_before=0, total=None, template=DEFAULT_TEMPLATE, code=""):
     """Print 'copies' labels, one at a time. Without fixed_time it uses the current time,
-    one second apart per label (like the PLC), so every DataMatrix is unique.
+    one second apart per label (like the PLC), so every DataMatrix is unique. With
+    fixed_time the first label of the whole run gets that time and each next one +1 second.
     pause/stop are optional threading.Event: while pause is set it waits before the
     next label; when stop is set it stops printing. Returns how many were sent."""
     total = total or copies
@@ -275,7 +276,7 @@ def print_labels(part, copies=1, option=0, fixed_time=None, log=print,
             time.sleep(0.1)
         if stop is not None and stop.is_set():
             break
-        when = fixed_time or datetime.now()
+        when = fixed_time + timedelta(seconds=done_before + sent) if fixed_time else datetime.now()
         job, barcode = build_job(part, when, option, template=template, code=code)
         send(job)
         sent += 1
@@ -467,7 +468,7 @@ def gui(selftest=False):
                                                                    pady=(8, 0))
 
     fixed_var = tk.BooleanVar(value=False)
-    ttk.Checkbutton(frm, text="Use fixed date (YYYY-MM-DD HH:MM:SS)", variable=fixed_var).grid(
+    ttk.Checkbutton(frm, text="Use another date/time (YYYY-MM-DD HH:MM:SS), +1 s per label", variable=fixed_var).grid(
         row=7, column=0, columnspan=3, sticky="w", pady=(6, 0))
     date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     ttk.Entry(frm, textvariable=date_var, width=22).grid(row=8, column=0, columnspan=3, sticky="w")
