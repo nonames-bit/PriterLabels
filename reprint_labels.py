@@ -713,6 +713,24 @@ def gui(selftest=False):
     normal_theme = style.theme_use()
     style.configure("Dim.TLabel", foreground="#666")
 
+    def color_dropdowns(c):
+        """The open list of each dropdown is a plain Tk listbox; color it to match the theme."""
+        colors = (dict(background=c["field"], foreground=c["fg"], selectbackground=c["select"],
+                       selectforeground=c["fg"]) if c else
+                  dict(background="SystemWindow", foreground="SystemWindowText",
+                       selectbackground="SystemHighlight", selectforeground="SystemHighlightText"))
+        if not c and root.tk.call("tk", "windowingsystem") != "win32":
+            colors = dict(background="white", foreground="black", selectbackground="#4a6984",
+                          selectforeground="white")
+
+        def walk(w):
+            for child in w.winfo_children():
+                if isinstance(child, ttk.Combobox):
+                    pop = root.tk.call("ttk::combobox::PopdownWindow", str(child))
+                    root.tk.call(f"{pop}.f.l", "configure", *[x for k, v in colors.items() for x in (f"-{k}", v)])
+                walk(child)
+        walk(root)
+
     def apply_theme(*_):
         global THEME
         THEME = theme_var.get()
@@ -748,11 +766,9 @@ def gui(selftest=False):
             style.configure("Dim.TLabel", foreground=dim)
             style.configure("Banner.TLabel", foreground=fg, font=("Consolas", 12, "bold"))
             root.configure(bg=bg)
-            root.option_add("*TCombobox*Listbox.background", field)
-            root.option_add("*TCombobox*Listbox.foreground", fg)
-            root.option_add("*TCombobox*Listbox.selectBackground", sel)
             canvas.config(bg=bg)
             banner.grid(row=0, column=0, sticky="w")
+        color_dropdowns(c)
         save_settings()
         if c is not None:
             start_boot()
