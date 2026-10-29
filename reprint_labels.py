@@ -1,5 +1,7 @@
 """Reprint DataMatrix labels from a PC, straight to the Honeywell printer.
 
+Created by Jaime.
+
 Sends the same Fingerprint programs the PLCs build, over TCP port 9100, so the labels
 come out identical. Label types (see TEMPLATES):
     A  DataMatrix 'P<part> T<YYYYMMDDHHMMSS>', part number, date 'YY/MM/DD-HH:MM:SS'
@@ -276,7 +278,7 @@ def gui(selftest=False):
     from tkinter import messagebox, ttk
 
     root = tk.Tk()
-    root.title("Reprint labels")
+    root.title("Reprint labels - Created by Jaime")
     frm = ttk.Frame(root, padding=12)
     frm.grid()
 
@@ -442,6 +444,9 @@ def gui(selftest=False):
     ttk.Label(net, text="Port").grid(row=0, column=2, sticky="w")
     port_var = tk.IntVar(value=PRINTER_PORT)
     ttk.Entry(net, textvariable=port_var, width=6).grid(row=0, column=3, sticky="w", padx=4)
+
+    ttk.Label(frm, text="Created by Jaime", foreground="#666").grid(row=14, column=0, columnspan=4, sticky="e",
+                                                                   pady=(8, 0))
 
     fixed_var = tk.BooleanVar(value=False)
     ttk.Checkbutton(frm, text="Use fixed date (YYYY-MM-DD HH:MM:SS)", variable=fixed_var).grid(

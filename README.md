@@ -1,5 +1,7 @@
 # PriterLabels
 
+Created by Jaime.
+
 Reprint the DataMatrix part labels from a PC, straight to the Honeywell printer
 (Fingerprint / Direct Protocol over TCP port 9100), without going through the PLC.
 
