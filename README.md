@@ -12,7 +12,7 @@ Reprint the DataMatrix part labels from a PC, straight to the Honeywell printer
 
 In the window:
 
-1. Pick the **Label type** (A: part + date, B: GM part, C: Y code with the date on top),
+1. Pick the **Label type**: A (part + date), B (GM part) or C (Y code, date on top);
    type the part number (and the Y code for type C) and the quantity, then **Add to list**.
 2. Press **Print**; use **Pause / Resume / Stop** while it prints.
 3. If the print sits off-center, use the arrow buttons under *Label position* to move

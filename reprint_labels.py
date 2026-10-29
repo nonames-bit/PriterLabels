@@ -132,12 +132,14 @@ def b_preview(part, when, code, option):
 
 
 def c_lines(part, when, code, option, pp):
+    # Same as the PLC, except the time is 6 dots lower (PLC: 90) so it does not touch the date,
+    # and the part number is 10 dots to the right (PLC: 275).
     return [
         f'{pp("dm", 280, 110)}:AN7\n',
         'BARSET "DATAMATRIX",1,1,3,150,0,8\n',
         f'PB "{c_barcode(part, when, code)}"\n',
-        f'{pp("part", 275, 30)}:NASC 1252\nFT {FONT},8,0,101\nPT "{part}"\n',
-        f'{pp("time", 360, 90)}:FT {FONT},7,0,101\nPT "{when:%H:%M:%S}"\n',
+        f'{pp("part", 285, 30)}:NASC 1252\nFT {FONT},8,0,101\nPT "{part}"\n',
+        f'{pp("time", 360, 84)}:FT {FONT},7,0,101\nPT "{when:%H:%M:%S}"\n',
         'PT ""\n',
         f'{pp("code", 360, 60)}:FT {FONT},8,0,101\nPT "{code}"\n{pp("date", 360, 110)}:FT {FONT},7,0,101\n',
         f'PT "{when:%Y/%m/%d}"\n',
@@ -152,9 +154,9 @@ def c_barcode(part, when, code):
 def c_preview(part, when, code, option):
     return [("dm", "dm", 280, 110, 7, 3.9, c_barcode(part, when, code)),
             ("text", "date", 360, 110, 7, 7, f"{when:%Y/%m/%d}"),
-            ("text", "time", 360, 90, 7, 7, f"{when:%H:%M:%S}"),
+            ("text", "time", 360, 84, 7, 7, f"{when:%H:%M:%S}"),
             ("text", "code", 360, 60, 7, 8, code),
-            ("text", "part", 275, 30, 7, 8, part)]
+            ("text", "part", 285, 30, 7, 8, part)]
 
 
 TEMPLATES = {
@@ -279,10 +281,10 @@ def gui(selftest=False):
     frm.grid()
 
     # --- One row of the list ---
-    type_names = [f"{k} - {t['name']}" for k, t in TEMPLATES.items()]
+    type_names = list(TEMPLATES)
     ttk.Label(frm, text="Label type").grid(row=0, column=0, sticky="w")
     type_var = tk.StringVar(value=type_names[0])
-    ttk.Combobox(frm, textvariable=type_var, values=type_names, state="readonly", width=28).grid(
+    ttk.Combobox(frm, textvariable=type_var, values=type_names, state="readonly", width=4).grid(
         row=0, column=1, columnspan=2, sticky="w", pady=2)
 
     def cur():
