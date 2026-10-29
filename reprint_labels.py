@@ -582,8 +582,8 @@ def gui(selftest=False):
     def draw_preview():
         canvas.delete("all")
         crt["draws"] = crt.get("draws", 0) + 1
-        c = THEMES[THEME]  # terminal themes draw the label in their own colors
-        paper, ink, edge = (c["field"], c["fg"], c["dim"]) if c else ("white", "black", "#888")
+        look = THEMES[THEME]  # terminal themes draw the label in their own colors
+        paper, ink, edge = (look["field"], look["fg"], look["dim"]) if look else ("white", "black", "#888")
         key = cur()
         t = TEMPLATES[key]
         rx0, rx1, ry0, ry1 = t["rect"]
@@ -631,11 +631,11 @@ def gui(selftest=False):
             canvas.create_rectangle(*rect, fill=bg, width=0)
         canvas.create_rectangle(x0, y0, x1, y1, outline=edge)
 
-        if c:  # retro CRT look: "loading" screen while booting, then scanlines
+        if look:  # retro CRT look: "loading" screen while booting, then scanlines
             left = crt["boot_end"] - time.monotonic()
             if left > 0:
                 done = 1 - left / BOOT_SECONDS
-                canvas.create_rectangle(x0, y0, x1, y1, fill=c["bg"], outline=edge)
+                canvas.create_rectangle(x0, y0, x1, y1, fill=look["bg"], outline=edge)
                 mx, my = (x0 + x1) / 2, (y0 + y1) / 2
                 canvas.create_text(mx, my - 14, text="LOADING LABEL DATA...", fill=ink, font=("Consolas", 11, "bold"))
                 cells = 20
@@ -643,7 +643,7 @@ def gui(selftest=False):
                 canvas.create_text(mx, my + 10, text=f"{bar} {int(done * 100):3d}%", fill=ink,
                                    font=("Consolas", 10))
             for line_y in range(0, ch, 3):
-                canvas.create_line(0, line_y, cw, line_y, fill=c["bg"])
+                canvas.create_line(0, line_y, cw, line_y, fill=look["bg"])
 
     # Drag one item: move it on screen while dragging, save the offset on release.
     drag = {}
