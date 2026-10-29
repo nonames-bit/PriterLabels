@@ -10,9 +10,15 @@ Reprint the DataMatrix part labels from a PC, straight to the Honeywell printer
 - **With Python 3:** `python reprint_labels.py` (window) or
   `python reprint_labels.py 85066731 3` (prints 3 labels, no window).
 
-In the window: add part numbers and quantities to the list, press **Print**, and use
-**Pause / Resume / Stop** while it prints. If the print sits off-center, use the
-arrow buttons under *Label position* (each click moves it a little) and
-**Print 1 test label**; **Reset** goes back to the normal position. The *Preview*
-shows an approximate drawing of the label as you type and move it. Printer IP/port and the position
-are saved in `settings.json` next to the program.
+In the window:
+
+1. Pick the **Label type** (A: part + date, B: GM part, C: Y code with the date on top),
+   type the part number (and the Y code for type C) and the quantity, then **Add to list**.
+2. Press **Print**; use **Pause / Resume / Stop** while it prints.
+3. If the print sits off-center, use the arrow buttons under *Label position* to move
+   everything, or drag one item (date, part number, DataMatrix...) in the **Preview**.
+   **Print 1 test label** to check; **Reset** goes back to the normal position.
+
+Printer IP/port and the positions (per label type) are saved in `settings.json` next to
+the program. Label types live in `TEMPLATES` in `reprint_labels.py`, copied from the PLC
+programs.
