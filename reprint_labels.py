@@ -578,6 +578,8 @@ def gui(selftest=False):
 
     def draw_preview():
         canvas.delete("all")
+        c = THEMES[THEME]  # terminal themes draw the label in their own colors
+        paper, ink, edge = (c["field"], c["fg"], c["dim"]) if c else ("white", "black", "#888")
         key = cur()
         t = TEMPLATES[key]
         rx0, rx1, ry0, ry1 = t["rect"]
@@ -588,7 +590,7 @@ def gui(selftest=False):
         canvas.config(width=cw, height=ch)
         x0, y0 = to_px(rx0 + base["x"], ry1 + base["y"])
         x1, y1 = to_px(rx1 + base["x"], ry0 + base["y"])
-        canvas.create_rectangle(x0, y0, x1, y1, fill="white", outline="#888")
+        canvas.create_rectangle(x0, y0, x1, y1, fill=paper, outline=edge)
 
         part = part_var.get().strip() or t["sample"]
         code = code_var.get().strip() or "Y0000000"
@@ -609,13 +611,13 @@ def gui(selftest=False):
                     for c, bit in enumerate(row):
                         if bit:
                             canvas.create_rectangle(left + c * cell, top + r * cell, left + (c + 1) * cell,
-                                                    top + (r + 1) * cell, fill="black", width=0, tags=tag)
+                                                    top + (r + 1) * cell, fill=ink, width=0, tags=tag)
                 # transparent box so the whole symbol can be grabbed
                 canvas.create_rectangle(left, top, left + side * s, top + side * s, outline="", fill="",
                                         tags=tag)
             else:
                 px, py = to_px(x, y)
-                canvas.create_text(px, py, text=content, anchor="sw" if anchor == 1 else "nw", fill="black",
+                canvas.create_text(px, py, text=content, anchor="sw" if anchor == 1 else "nw", fill=ink,
                                    font=("Arial Narrow", -max(6, int(size * DOTS_PER_PT * s)), "bold"),
                                    tags=tag)
 
@@ -623,7 +625,7 @@ def gui(selftest=False):
         bg = canvas["bg"]
         for rect in ((0, 0, cw, y0), (0, y1, cw, ch), (0, 0, x0, ch), (x1, 0, cw, ch)):
             canvas.create_rectangle(*rect, fill=bg, width=0)
-        canvas.create_rectangle(x0, y0, x1, y1, outline="#888")
+        canvas.create_rectangle(x0, y0, x1, y1, outline=edge)
 
     # Drag one item: move it on screen while dragging, save the offset on release.
     drag = {}
