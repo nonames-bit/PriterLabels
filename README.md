@@ -26,4 +26,5 @@ the program. Label types live in `TEMPLATES` in `reprint_labels.py`, copied from
 programs.
 
 **Theme**: next to the printer IP you can pick *Normal*, *Green terminal* or *Amber terminal*
-(retro look); the choice is saved in `settings.json`.
+(retro look, with scanlines, a short "loading" screen and the odd glitch); the choice is
+saved in `settings.json`.

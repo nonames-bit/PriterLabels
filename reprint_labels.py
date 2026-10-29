@@ -17,6 +17,7 @@ The printer IP/port can be changed in the window; it is saved in settings.json.
 """
 import json
 import os
+import random
 import re
 import socket
 import sys
@@ -291,6 +292,8 @@ def gui(selftest=False):
 
     root = tk.Tk()
     root.title("Reprint labels - Created by Jaime")
+    BOOT_SECONDS = 1.8  # "loading" screen when a terminal theme starts
+    crt = {"boot_end": 0}
     banner_var = tk.StringVar()
     banner = ttk.Label(root, textvariable=banner_var, style="Banner.TLabel", padding=(12, 8, 12, 0))
     frm = ttk.Frame(root, padding=12)
@@ -578,6 +581,7 @@ def gui(selftest=False):
 
     def draw_preview():
         canvas.delete("all")
+        crt["draws"] = crt.get("draws", 0) + 1
         c = THEMES[THEME]  # terminal themes draw the label in their own colors
         paper, ink, edge = (c["field"], c["fg"], c["dim"]) if c else ("white", "black", "#888")
         key = cur()
@@ -626,6 +630,20 @@ def gui(selftest=False):
         for rect in ((0, 0, cw, y0), (0, y1, cw, ch), (0, 0, x0, ch), (x1, 0, cw, ch)):
             canvas.create_rectangle(*rect, fill=bg, width=0)
         canvas.create_rectangle(x0, y0, x1, y1, outline=edge)
+
+        if c:  # retro CRT look: "loading" screen while booting, then scanlines
+            left = crt["boot_end"] - time.monotonic()
+            if left > 0:
+                done = 1 - left / BOOT_SECONDS
+                canvas.create_rectangle(x0, y0, x1, y1, fill=c["bg"], outline=edge)
+                mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+                canvas.create_text(mx, my - 14, text="LOADING LABEL DATA...", fill=ink, font=("Consolas", 11, "bold"))
+                cells = 20
+                bar = "\u2588" * int(done * cells) + "\u2591" * (cells - int(done * cells))
+                canvas.create_text(mx, my + 10, text=f"{bar} {int(done * 100):3d}%", fill=ink,
+                                   font=("Consolas", 10))
+            for line_y in range(0, ch, 3):
+                canvas.create_line(0, line_y, cw, line_y, fill=c["bg"])
 
     # Drag one item: move it on screen while dragging, save the offset on release.
     drag = {}
@@ -717,16 +735,60 @@ def gui(selftest=False):
             canvas.config(bg=bg)
             banner.grid(row=0, column=0, sticky="w")
         save_settings()
-        draw_preview()
+        if c is not None:
+            start_boot()
+        else:
+            crt["boot_end"] = 0
+            draw_preview()
+
+    BOOT_LINES = ["> INITIALIZING TERMINAL...", "> LOADING LABEL TYPES A / B / C...",
+                  "> CONNECTING TO PRINTER...", "> READY."]
+
+    def start_boot():
+        crt["boot_end"] = time.monotonic() + BOOT_SECONDS
+        boot_step()
+
+    def boot_step():
+        left = crt["boot_end"] - time.monotonic()
+        if left > 0 and THEMES[THEME]:
+            draw_preview()
+            root.after(80, boot_step)
+        else:
+            draw_preview()
 
     def blink(on=[True]):
         on[0] = not on[0]
-        banner_var.set("> LABEL REPRINT TERMINAL  //  CREATED BY JAIME " + ("_" if on[0] else " "))
-        root.after(500, blink)
+        cursor = "_" if on[0] else " "
+        left = crt["boot_end"] - time.monotonic()
+        if left > 0:
+            step = min(len(BOOT_LINES) - 1, int((1 - left / BOOT_SECONDS) * len(BOOT_LINES)))
+            banner_var.set(BOOT_LINES[step] + " " + cursor)
+        else:
+            banner_var.set("> LABEL REPRINT TERMINAL  //  CREATED BY JAIME " + cursor)
+        root.after(250 if left > 0 else 500, blink)
+
+    def glitch():
+        """Now and then jitter the preview and banner for a moment, like a worn-out monitor."""
+        if THEMES[THEME] and not drag.get("name") and crt["boot_end"] < time.monotonic():
+            dx, draws = random.choice((-6, -4, 4, 6)), crt.get("draws")
+            canvas.move("item", dx, 0)
+            text = banner_var.get()
+            garbled = "".join(random.choice("#%&@$*") if ch != " " and random.random() < 0.15 else ch
+                              for ch in text)
+            banner_var.set(garbled)
+
+            def restore():
+                if crt.get("draws") == draws:  # not redrawn meanwhile
+                    canvas.move("item", -dx, 0)
+                if banner_var.get() == garbled:
+                    banner_var.set(text)
+            root.after(90, restore)
+        root.after(random.randint(2500, 7000), glitch)
 
     theme_var.trace_add("write", apply_theme)
     apply_theme()
     blink()
+    root.after(3000, glitch)
 
     tick()
     if selftest:  # CI check: build the window, try every label type and control, then close
