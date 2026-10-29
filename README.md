@@ -11,5 +11,7 @@ Reprint the DataMatrix part labels from a PC, straight to the Honeywell printer
   `python reprint_labels.py 85066731 3` (prints 3 labels, no window).
 
 In the window: add part numbers and quantities to the list, press **Print**, and use
-**Pause / Resume / Stop** while it prints. Printer IP/port and the X/Y position offset
-are editable and saved in `settings.json` next to the program.
+**Pause / Resume / Stop** while it prints. If the print sits off-center, use the
+arrow buttons under *Label position* (each click moves it a little) and
+**Print 1 test label**; **Reset** goes back to the normal position. Printer IP/port and the position
+are saved in `settings.json` next to the program.

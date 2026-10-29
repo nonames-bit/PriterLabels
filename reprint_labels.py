@@ -26,7 +26,8 @@ FONT = '"Univers Condensed Bold"'
 # Position offset in dots, added to every PP coordinate.
 # Positive X moves right; positive Y moves up (the date has the smallest Y, which is
 # why it sits at the bottom).
-OFFSET = {"x": -30, "y": 25}
+DEFAULT_OFFSET = {"x": -15, "y": 10}  # tuned on the real printer
+OFFSET = dict(DEFAULT_OFFSET)
 
 # Printer IP/port and offset are saved in settings.json next to the program
 # (next to the .exe when it is built with PyInstaller).
@@ -201,22 +202,44 @@ def gui():
     ttk.Button(btns, text="Remove selected", command=remove_row).grid(row=0, column=1, padx=4)
     part_entry.bind("<Return>", lambda e: add_row())
 
-    adj = ttk.Frame(frm)
-    adj.grid(row=10, column=0, columnspan=3, sticky="w", pady=(8, 0))
-    ttk.Label(adj, text="Offset X (+ right)").grid(row=0, column=0, sticky="w")
-    x_var = tk.IntVar(value=OFFSET["x"])
-    ttk.Spinbox(adj, from_=-300, to=300, increment=5, textvariable=x_var, width=6).grid(row=0, column=1, padx=4)
-    ttk.Label(adj, text="Offset Y (+ up)").grid(row=1, column=0, sticky="w")
-    y_var = tk.IntVar(value=OFFSET["y"])
-    ttk.Spinbox(adj, from_=-300, to=300, increment=5, textvariable=y_var, width=6).grid(row=1, column=1, padx=4)
+    # --- Label position: arrow buttons, no numbers to type ---
+    STEP = 5  # dots per click (about 0.4 mm at 300 dpi)
+    adj = ttk.LabelFrame(frm, text="Label position", padding=6)
+    adj.grid(row=10, column=0, columnspan=3, sticky="we", pady=(8, 0))
+    pos_text = tk.StringVar()
+
+    def describe_position():
+        def part(value, pos, neg):
+            clicks = abs(value) // STEP
+            return f"{clicks} {pos if value > 0 else neg}" if clicks else ""
+        dx, dy = OFFSET["x"] - DEFAULT_OFFSET["x"], OFFSET["y"] - DEFAULT_OFFSET["y"]
+        moves = [m for m in (part(dx, "right", "left"), part(dy, "up", "down")) if m]
+        pos_text.set("Moved: " + ", ".join(moves) if moves else "Normal position")
+
+    def move(dx, dy):
+        OFFSET["x"] += dx * STEP
+        OFFSET["y"] += dy * STEP
+        save_settings()
+        describe_position()
+
+    def reset_position():
+        OFFSET.update(DEFAULT_OFFSET)
+        save_settings()
+        describe_position()
+
+    pad = ttk.Frame(adj)
+    pad.grid(row=0, column=0, rowspan=3)
+    ttk.Button(pad, text="\u25b2 Up", width=8, command=lambda: move(0, 1)).grid(row=0, column=1)
+    ttk.Button(pad, text="\u25c0 Left", width=8, command=lambda: move(-1, 0)).grid(row=1, column=0)
+    ttk.Button(pad, text="Reset", width=8, command=reset_position).grid(row=1, column=1)
+    ttk.Button(pad, text="Right \u25b6", width=8, command=lambda: move(1, 0)).grid(row=1, column=2)
+    ttk.Button(pad, text="\u25bc Down", width=8, command=lambda: move(0, -1)).grid(row=2, column=1)
+    ttk.Label(adj, textvariable=pos_text).grid(row=0, column=1, sticky="w", padx=(10, 0))
+    describe_position()
 
     def read_offset():
+        """Validate and save the printer IP/port (the position is saved on every click)."""
         global PRINTER_IP, PRINTER_PORT
-        try:
-            OFFSET.update(x=int(x_var.get()), y=int(y_var.get()))
-        except (tk.TclError, ValueError):
-            messagebox.showwarning("Offset", "Offset X / Y must be a whole number.")
-            return False
         ip = ip_var.get().strip()
         try:
             port = int(port_var.get())
@@ -236,18 +259,20 @@ def gui():
             return
         try:
             send(build_job(part, datetime.now(), {"None": 0, "L": 1, "R": 2}[opt_var.get()])[0])
-            status.set(f"Test sent (X {OFFSET['x']}, Y {OFFSET['y']})")
+            status.set(f"Test label sent ({pos_text.get()})")
         except OSError as e:
             messagebox.showerror("Error", f"Could not send to the printer:\n{e}")
 
-    ttk.Button(adj, text="Print 1 test label", command=on_test).grid(row=0, column=2, rowspan=2, padx=(10, 0))
+    ttk.Button(adj, text="Print 1 test label", command=on_test).grid(row=1, column=1, sticky="w", padx=(10, 0))
 
-    ttk.Label(adj, text="Printer IP").grid(row=2, column=0, sticky="w", pady=(6, 0))
+    net = ttk.Frame(frm)
+    net.grid(row=11, column=0, columnspan=3, sticky="w", pady=(8, 0))
+    ttk.Label(net, text="Printer IP").grid(row=0, column=0, sticky="w")
     ip_var = tk.StringVar(value=PRINTER_IP)
-    ttk.Entry(adj, textvariable=ip_var, width=16).grid(row=2, column=1, columnspan=2, sticky="w", padx=4, pady=(6, 0))
-    ttk.Label(adj, text="Port").grid(row=3, column=0, sticky="w")
+    ttk.Entry(net, textvariable=ip_var, width=16).grid(row=0, column=1, sticky="w", padx=4)
+    ttk.Label(net, text="Port").grid(row=0, column=2, sticky="w")
     port_var = tk.IntVar(value=PRINTER_PORT)
-    ttk.Entry(adj, textvariable=port_var, width=6).grid(row=3, column=1, sticky="w", padx=4)
+    ttk.Entry(net, textvariable=port_var, width=6).grid(row=0, column=3, sticky="w", padx=4)
 
     fixed_var = tk.BooleanVar(value=False)
     ttk.Checkbutton(frm, text="Use fixed date (YYYY-MM-DD HH:MM:SS)", variable=fixed_var).grid(
