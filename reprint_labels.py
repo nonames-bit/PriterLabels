@@ -192,13 +192,24 @@ BASE_DIR = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else 
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
 
+# Window color themes. "Normal" keeps the Windows look; the others are retro terminals.
+THEMES = {
+    "Normal": None,
+    "Green terminal": dict(bg="#0a120a", fg="#33ff66", dim="#1f8a3a", field="#0f1f0f", select="#145a28"),
+    "Amber terminal": dict(bg="#120b02", fg="#ffb000", dim="#a06a00", field="#1e1405", select="#5a3c00"),
+}
+THEME = "Normal"
+
+
 def load_settings():
-    global PRINTER_IP, PRINTER_PORT
+    global PRINTER_IP, PRINTER_PORT, THEME
     try:
         with open(SETTINGS_FILE) as f:
             data = json.load(f)
         PRINTER_IP = str(data.get("ip", PRINTER_IP))
         PRINTER_PORT = int(data.get("port", PRINTER_PORT))
+        if data.get("theme") in THEMES:
+            THEME = data["theme"]
         if "x" in data and "y" in data:  # older settings: one offset, for type A
             OFFSETS["A"].update(x=int(data["x"]), y=int(data["y"]))
         for k, off in data.get("offsets", {}).items():
@@ -215,7 +226,7 @@ def save_settings():
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump({"ip": PRINTER_IP, "port": PRINTER_PORT, "offsets": OFFSETS,
-                       "element_offsets": ELEMENT_OFFSETS}, f, indent=2)
+                       "element_offsets": ELEMENT_OFFSETS, "theme": THEME}, f, indent=2)
     except OSError:
         pass
 
@@ -279,8 +290,10 @@ def gui(selftest=False):
 
     root = tk.Tk()
     root.title("Reprint labels - Created by Jaime")
+    banner_var = tk.StringVar()
+    banner = ttk.Label(root, textvariable=banner_var, style="Banner.TLabel", padding=(12, 8, 12, 0))
     frm = ttk.Frame(root, padding=12)
-    frm.grid()
+    frm.grid(row=1, column=0)
 
     # --- One row of the list ---
     type_names = list(TEMPLATES)
@@ -445,7 +458,12 @@ def gui(selftest=False):
     port_var = tk.IntVar(value=PRINTER_PORT)
     ttk.Entry(net, textvariable=port_var, width=6).grid(row=0, column=3, sticky="w", padx=4)
 
-    ttk.Label(frm, text="Created by Jaime", foreground="#666").grid(row=14, column=0, columnspan=4, sticky="e",
+    ttk.Label(net, text="Theme").grid(row=0, column=4, sticky="w", padx=(12, 0))
+    theme_var = tk.StringVar(value=THEME)
+    ttk.Combobox(net, textvariable=theme_var, values=list(THEMES), state="readonly", width=15).grid(
+        row=0, column=5, sticky="w", padx=4)
+
+    ttk.Label(frm, text="Created by Jaime", style="Dim.TLabel").grid(row=14, column=0, columnspan=4, sticky="e",
                                                                    pady=(8, 0))
 
     fixed_var = tk.BooleanVar(value=False)
@@ -650,6 +668,63 @@ def gui(selftest=False):
             draw_preview()
         root.after(1000, tick)
 
+    # --- Themes ---
+    style = ttk.Style(root)
+    normal_theme = style.theme_use()
+    style.configure("Dim.TLabel", foreground="#666")
+
+    def apply_theme(*_):
+        global THEME
+        THEME = theme_var.get()
+        c = THEMES[THEME]
+        if c is None:
+            style.theme_use(normal_theme)
+            root.configure(bg=style.lookup("TFrame", "background") or "SystemButtonFace")
+            canvas.config(bg="#d9d9d9")
+            banner.grid_remove()
+        else:
+            bg, fg, dim, field, sel = c["bg"], c["fg"], c["dim"], c["field"], c["select"]
+            font = ("Consolas", 10)
+            style.theme_use("clam")
+            style.configure(".", background=bg, foreground=fg, font=font, bordercolor=dim, lightcolor=bg,
+                            darkcolor=bg, troughcolor=field, focuscolor=fg, insertcolor=fg,
+                            fieldbackground=field, selectbackground=sel, selectforeground=fg, arrowcolor=fg)
+            style.map(".", background=[("disabled", bg)], foreground=[("disabled", dim)])
+            style.configure("TButton", background=bg, foreground=fg, bordercolor=fg, padding=(6, 2))
+            style.map("TButton", background=[("pressed", sel), ("active", sel), ("disabled", bg)],
+                      foreground=[("disabled", dim)])
+            for w in ("TEntry", "TCombobox", "TSpinbox"):
+                style.configure(w, fieldbackground=field, foreground=fg, background=bg)
+                style.map(w, fieldbackground=[("readonly", field), ("disabled", bg)],
+                          foreground=[("disabled", dim)], selectbackground=[("readonly", sel)])
+            style.configure("TCheckbutton", indicatorbackground=field, indicatorforeground=fg)
+            style.map("TCheckbutton", background=[("active", bg)])
+            style.configure("Treeview", background=field, fieldbackground=field, foreground=fg)
+            style.map("Treeview", background=[("selected", sel)], foreground=[("selected", fg)])
+            style.configure("Treeview.Heading", background=bg, foreground=fg, font=font)
+            style.map("Treeview.Heading", background=[("active", sel)])
+            style.configure("TLabelframe.Label", foreground=fg)
+            style.configure("Horizontal.TProgressbar", background=fg, troughcolor=field)
+            style.configure("Dim.TLabel", foreground=dim)
+            style.configure("Banner.TLabel", foreground=fg, font=("Consolas", 12, "bold"))
+            root.configure(bg=bg)
+            root.option_add("*TCombobox*Listbox.background", field)
+            root.option_add("*TCombobox*Listbox.foreground", fg)
+            root.option_add("*TCombobox*Listbox.selectBackground", sel)
+            canvas.config(bg=bg)
+            banner.grid(row=0, column=0, sticky="w")
+        save_settings()
+        draw_preview()
+
+    def blink(on=[True]):
+        on[0] = not on[0]
+        banner_var.set("> LABEL REPRINT TERMINAL  //  CREATED BY JAIME " + ("_" if on[0] else " "))
+        root.after(500, blink)
+
+    theme_var.trace_add("write", apply_theme)
+    apply_theme()
+    blink()
+
     tick()
     if selftest:  # CI check: build the window, try every label type and control, then close
         def fail(*exc):
@@ -674,6 +749,7 @@ def gui(selftest=False):
         for name in type_names:
             steps += [lambda n=name: type_var.set(n), lambda: code_var.set("Y0124069"), fake_drag,
                       reset_position]
+        steps += [lambda n=n: theme_var.set(n) for n in list(THEMES)[1:] + list(THEMES)[:1]]
         for i, fn in enumerate(steps):
             root.after(100 + 50 * i, fn)
         root.after(300 + 50 * len(steps), root.destroy)

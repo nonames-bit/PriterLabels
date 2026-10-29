@@ -24,3 +24,6 @@ In the window:
 Printer IP/port and the positions (per label type) are saved in `settings.json` next to
 the program. Label types live in `TEMPLATES` in `reprint_labels.py`, copied from the PLC
 programs.
+
+**Theme**: next to the printer IP you can pick *Normal*, *Green terminal* or *Amber terminal*
+(retro look); the choice is saved in `settings.json`.
