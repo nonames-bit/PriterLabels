@@ -375,10 +375,16 @@ def gui(selftest=False):
             table.delete(item)
             jobs.pop(item, None)
 
+    def clear_list():
+        for item in table.get_children():
+            table.delete(item)
+        jobs.clear()
+
     btns = ttk.Frame(frm)
     btns.grid(row=5, column=0, columnspan=3, sticky="w", pady=(4, 0))
     ttk.Button(btns, text="Add to list", command=add_row).grid(row=0, column=0)
     ttk.Button(btns, text="Remove selected", command=remove_row).grid(row=0, column=1, padx=4)
+    ttk.Button(btns, text="Clear list", command=clear_list).grid(row=0, column=2)
     part_entry.bind("<Return>", lambda e: add_row())
 
     # --- Label position: arrow buttons move everything, drag in the preview moves one item ---
@@ -512,8 +518,11 @@ def gui(selftest=False):
                     log=lambda m: ui(lambda m=m: (status.set(m), progress.step(1))))
                 if stop_ev.is_set():
                     break
-            final = f"Stopped: {done}/{total} sent" if stop_ev.is_set() else f"Done: {total} labels sent"
-            ui(status.set, final)
+            if stop_ev.is_set():
+                ui(status.set, f"Stopped: {done}/{total} sent")
+            else:
+                ui(status.set, f"Done: {total} labels sent")
+                ui(clear_list)  # finished jobs leave the list so they are not printed twice
         except OSError as e:
             ui(messagebox.showerror, "Error", f"Could not send to the printer ({done} sent so far):\n{e}")
             ui(status.set, f"Error after {done} labels")
@@ -521,8 +530,17 @@ def gui(selftest=False):
             ui(set_running, False)
 
     def on_print():
-        if not table.get_children() and not add_row():
-            return
+        if not table.get_children():
+            if not add_row():
+                return
+        elif part_var.get().strip():
+            # Something is typed above but the list already has rows: don't silently ignore it.
+            answer = messagebox.askyesnocancel(
+                "Part not in the list",
+                f"{part_var.get().strip()} x {qty_var.get()} is typed above but not in the list.\n\n"
+                "Yes: add it to the list and print everything\nNo: print only the list")
+            if answer is None or (answer and not add_row()):
+                return
         rows = [jobs[item] for item in table.get_children()]
         try:
             fixed = datetime.strptime(date_var.get().strip(), "%Y-%m-%d %H:%M:%S") if fixed_var.get() else None
@@ -532,7 +550,8 @@ def gui(selftest=False):
         if not read_offset():
             return
         total = sum(r[3] for r in rows)
-        if not messagebox.askyesno("Confirm", f"Print {total} labels?"):
+        summary = "\n".join(f"{t}   {part}{'  ' + code if code else ''}   x {qty}" for t, part, code, qty, _ in rows)
+        if not messagebox.askyesno("Confirm", f"Print {total} labels?\n\n{summary}"):
             return
         pause_ev.clear()
         stop_ev.clear()
