@@ -19,6 +19,11 @@ import sys
 import time
 from datetime import datetime
 
+try:  # pure-Python DataMatrix encoder, only used for the on-screen preview
+    from ppf.datamatrix import DataMatrix
+except ImportError:
+    DataMatrix = None
+
 PRINTER_IP = "10.48.180.143"
 PRINTER_PORT = 9100
 FONT = '"Univers Condensed Bold"'
@@ -144,7 +149,7 @@ def print_labels(part, copies=1, option=0, fixed_time=None, log=print,
     return sent
 
 
-def gui():
+def gui(selftest=False):
     import threading
     import tkinter as tk
     from tkinter import messagebox, ttk
@@ -207,6 +212,7 @@ def gui():
     adj = ttk.LabelFrame(frm, text="Label position", padding=6)
     adj.grid(row=10, column=0, columnspan=3, sticky="we", pady=(8, 0))
     pos_text = tk.StringVar()
+    preview_hooks = []  # redraw callbacks, filled in once the preview exists
 
     def describe_position():
         def part(value, pos, neg):
@@ -215,6 +221,8 @@ def gui():
         dx, dy = OFFSET["x"] - DEFAULT_OFFSET["x"], OFFSET["y"] - DEFAULT_OFFSET["y"]
         moves = [m for m in (part(dx, "right", "left"), part(dy, "up", "down")) if m]
         pos_text.set("Moved: " + ", ".join(moves) if moves else "Normal position")
+        for fn in preview_hooks:
+            fn()
 
     def move(dx, dy):
         OFFSET["x"] += dx * STEP
@@ -367,12 +375,99 @@ def gui():
     print_btn.config(command=on_print)
     pause_btn.config(command=on_pause)
     stop_btn.config(command=on_stop)
+    # --- Label preview (approximate, drawn from the same coordinates sent to the printer) ---
+    # Label edges in printer dots, measured from a PLC-printed label (203 dpi, ~1.9" x 0.94"),
+    # shifted by the default offset so "Normal position" looks centered.
+    LX0, LX1 = 236 + DEFAULT_OFFSET["x"], 620 + DEFAULT_OFFSET["x"]
+    LY0, LY1 = -36 + DEFAULT_OFFSET["y"], 154 + DEFAULT_OFFSET["y"]
+    S, PAD = 1.1, 12  # screen pixels per dot, margin around the label
+    pv = ttk.LabelFrame(frm, text="Preview", padding=6)
+    pv.grid(row=0, column=3, rowspan=12, sticky="n", padx=(12, 0))
+    cw, ch = int((LX1 - LX0) * S) + 2 * PAD, int((LY1 - LY0) * S) + 2 * PAD
+    canvas = tk.Canvas(pv, width=cw, height=ch, bg="#d9d9d9", highlightthickness=0)
+    canvas.grid()
+    ttk.Label(pv, text="Approximate. Print 1 test label to confirm.").grid(sticky="w")
+
+    def to_px(x, y):
+        return PAD + (x - LX0) * S, PAD + (LY1 - y) * S
+
+    def preview_time():
+        if fixed_var.get():
+            try:
+                return datetime.strptime(date_var.get().strip(), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                pass
+        return datetime.now()
+
+    def draw_preview():
+        canvas.delete("all")
+        part = part_var.get().strip() or "PART NUMBER"
+        when = preview_time()
+        option = {"None": 0, "L": 1, "R": 2}[opt_var.get()]
+        dx, dy = OFFSET["x"], OFFSET["y"]
+        x0, y0 = to_px(LX0, LY1)
+        x1, y1 = to_px(LX1, LY0)
+        canvas.create_rectangle(x0, y0, x1, y1, fill="white", outline="#888")
+
+        # DataMatrix: lower-left corner at PP250,5, about 120 dots square
+        size = 120
+        bx, by = to_px(250 + dx, 5 + dy + size)
+        content = f"P{part} T{when:%Y%m%d%H%M%S}"
+        if DataMatrix is not None:
+            rows = DataMatrix(content).matrix
+            cell = size * S / len(rows)
+            for r, row in enumerate(rows):
+                for c, bit in enumerate(row):
+                    if bit:
+                        canvas.create_rectangle(bx + c * cell, by + r * cell, bx + (c + 1) * cell,
+                                                by + (r + 1) * cell, fill="black", width=0)
+        else:
+            canvas.create_rectangle(bx, by, bx + size * S, by + size * S, fill="#444", width=0)
+
+        def text(x, y, txt, height):
+            px, py = to_px(x + dx, y + dy)
+            canvas.create_text(px, py, text=txt, anchor="sw", fill="black",
+                               font=("Arial Narrow", -max(6, int(height * S)), "bold"))
+
+        text(385, 70, part, 26)
+        if option:
+            text(240, 174, f"{part[-4:]} {'L' if option == 1 else 'R'}", 32)
+        text(385, 10, f"{when:%y/%m/%d-%H:%M:%S}", 20)
+
+        # Hide whatever falls outside the label, like the printer would
+        bg = canvas["bg"]
+        for rect in ((0, 0, cw, y0), (0, y1, cw, ch), (0, 0, x0, ch), (x1, 0, cw, ch)):
+            canvas.create_rectangle(*rect, fill=bg, width=0)
+        canvas.create_rectangle(x0, y0, x1, y1, outline="#888")
+
+    preview_hooks.append(draw_preview)
+    for var in (part_var, opt_var, fixed_var, date_var):
+        var.trace_add("write", lambda *_: draw_preview())
+
+    def tick():
+        if not fixed_var.get():
+            draw_preview()
+        root.after(1000, tick)
+
+    tick()
+    if selftest:  # CI check: build the window, click the arrows, then close
+        def fail(*exc):
+            import traceback
+            traceback.print_exception(*exc)
+            os._exit(1)
+        root.report_callback_exception = fail
+        for fn in (lambda: move(1, 0), lambda: move(0, -1), reset_position,
+                   lambda: opt_var.set("L"), lambda: fixed_var.set(True), lambda: part_var.set("12345678")):
+            root.after(200, fn)
+        root.after(1500, root.destroy)
     root.mainloop()
 
 
 if __name__ == "__main__":
     load_settings()
-    if len(sys.argv) >= 2:
+    if sys.argv[1:] == ["--selftest"]:
+        gui(selftest=True)
+    elif len(sys.argv) >= 2:
         print_labels(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 1)
     else:
         gui()

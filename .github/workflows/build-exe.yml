@@ -15,7 +15,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pyinstaller
+      - run: pip install pyinstaller ppf-datamatrix
+      - name: Smoke test the window
+        run: python reprint_labels.py --selftest
       - run: pyinstaller --onefile --windowed --name ReprintLabels reprint_labels.py
       - uses: actions/upload-artifact@v4
         with:

@@ -13,5 +13,6 @@ Reprint the DataMatrix part labels from a PC, straight to the Honeywell printer
 In the window: add part numbers and quantities to the list, press **Print**, and use
 **Pause / Resume / Stop** while it prints. If the print sits off-center, use the
 arrow buttons under *Label position* (each click moves it a little) and
-**Print 1 test label**; **Reset** goes back to the normal position. Printer IP/port and the position
+**Print 1 test label**; **Reset** goes back to the normal position. The *Preview*
+shows an approximate drawing of the label as you type and move it. Printer IP/port and the position
 are saved in `settings.json` next to the program.
